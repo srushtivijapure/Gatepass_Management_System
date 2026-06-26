@@ -316,7 +316,6 @@ include('connection.php');
             document.getElementById("userType").value = type;
             document.getElementById("loginForm").action = type === "student" ? "student_login.php" : "faculty_login.php";
         }
-
         document.addEventListener('DOMContentLoaded', function () {
             document.getElementById("loginForm").action = "student_login.php";
 

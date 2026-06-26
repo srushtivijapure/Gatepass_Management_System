@@ -1,19 +1,9 @@
 <?php
 /**
- * Forgot Password flow (no email/SMTP required).
+ * Forgot Password flow with transaction support.
  *
- * Step 1 (action=verify): user enters their registered email + department.
- *   If it matches a row in `users`, we mark them as "verified" for this
- *   session only and show the "set new password" form on index.php.
- *
- * Step 2 (action=reset): user submits a new password. We update it in
- *   BOTH the `users` table and the matching student_registration /
- *   faculty_registration table, then clear the verified flag.
- *
- * NOTE: If you later get a working SMTP/email provider (e.g. Brevo,
- * SendGrid, Mailgun - InfinityFree's free tier does not support SMTP),
- * you can swap Step 1 for a "send reset link with token" flow instead.
- * The token table / mail-sending code would go right here.
+ * Step 1: User enters registered email + department for identity verification
+ * Step 2: User submits new password - updates BOTH tables atomically
  */
 
 session_start();
@@ -23,7 +13,7 @@ $action = $_POST['action'] ?? '';
 
 if ($action === 'verify') {
 
-    $email = mysqli_real_escape_string($conn, trim($_POST['email'] ?? ''));
+    $email = trim($_POST['email'] ?? '');
     $department = trim($_POST['department'] ?? '');
 
     if (empty($email) || empty($department)) {
@@ -33,15 +23,27 @@ if ($action === 'verify') {
         exit();
     }
 
-    $query = "SELECT user_id, department FROM users WHERE email = '$email'";
-    $result = mysqli_query($conn, $query);
+    // Validate email format
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $_SESSION['reset_message'] = "Please enter a valid email address.";
+        $_SESSION['reset_message_type'] = 'danger';
+        header('Location: index.php#forgotPasswordStep1');
+        exit();
+    }
 
-    if ($result && mysqli_num_rows($result) === 1) {
-        $user = mysqli_fetch_assoc($result);
+    // Use prepared statement to prevent SQL injection
+    $query = $conn->prepare("SELECT user_id, department FROM users WHERE email = ?");
+    $query->bind_param("s", $email);
+    $query->execute();
+    $result = $query->get_result();
 
-        if (strcasecmp(trim($user['department']), $department) === 0) {
+    if ($result && $result->num_rows === 1) {
+        $user = $result->fetch_assoc();
+
+        if (strcasecmp(trim($user['department']), trim($department)) === 0) {
             // Verified - allow password reset for this session
             $_SESSION['reset_verified_user_id'] = $user['user_id'];
+            $_SESSION['reset_verified_email'] = $email;  // Store for audit trail
             $_SESSION['reset_message'] = "Identity verified. Please set your new password below.";
             $_SESSION['reset_message_type'] = 'success';
         } else {
@@ -53,12 +55,14 @@ if ($action === 'verify') {
         $_SESSION['reset_message_type'] = 'danger';
     }
 
+    $query->close();
     $conn->close();
     header('Location: index.php#forgotPasswordStep1');
     exit();
 
 } elseif ($action === 'reset') {
 
+    // Verify user went through step 1
     if (!isset($_SESSION['reset_verified_user_id'])) {
         $_SESSION['reset_message'] = "Please verify your identity first.";
         $_SESSION['reset_message_type'] = 'danger';
@@ -70,53 +74,124 @@ if ($action === 'verify') {
     $new_password = trim($_POST['new_password'] ?? '');
     $confirm_password = trim($_POST['confirm_password'] ?? '');
 
+    // Validation
+    if (empty($new_password)) {
+        $_SESSION['reset_message'] = "Password cannot be empty.";
+        $_SESSION['reset_message_type'] = 'danger';
+        header('Location: index.php#forgotPasswordStep1');
+        exit();
+    }
+
     if (strlen($new_password) < 6) {
         $_SESSION['reset_message'] = "Password must be at least 6 characters long.";
         $_SESSION['reset_message_type'] = 'danger';
-        header('Location: index.php');
+        header('Location: index.php#forgotPasswordStep1');
         exit();
     }
 
     if ($new_password !== $confirm_password) {
         $_SESSION['reset_message'] = "Passwords do not match.";
         $_SESSION['reset_message_type'] = 'danger';
-        header('Location: index.php');
+        header('Location: index.php#forgotPasswordStep1');
         exit();
     }
 
     $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
 
-    // Update the shared users table
-    $stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
-    $stmt->bind_param("si", $hashed_password, $user_id);
-    $stmt->execute();
-    $stmt->close();
+    // Start transaction for atomic updates
+    try {
+        $conn->begin_transaction();
 
-    // Find the role so we know which secondary table to update
-    $role_query = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
-    $role_query->bind_param("i", $user_id);
-    $role_query->execute();
-    $role_result = $role_query->get_result();
-    $role_row = $role_result->fetch_assoc();
-    $role_query->close();
+        // Step 1: Get the user's role
+        $role_query = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
+        $role_query->bind_param("i", $user_id);
+        $role_query->execute();
+        $role_result = $role_query->get_result();
+        $role_row = $role_result->fetch_assoc();
+        $role_query->close();
 
-    if ($role_row) {
+        if (!$role_row) {
+            throw new Exception("User not found.");
+        }
+
+        // Step 2: Update users table (primary authentication table)
+        $stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+        if (!$stmt) {
+            throw new Exception("Prepare failed: " . $conn->error);
+        }
+        $stmt->bind_param("si", $hashed_password, $user_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to update users table: " . $stmt->error);
+        }
+        $stmt->close();
+
+        // Step 3: Update role-specific table based on user's role.
+        // Match by id OR by email - this self-heals legacy accounts where
+        // student_registration.student_id / faculty_registration.faculty_id
+        // drifted out of sync with users.user_id (created before the
+        // registration script kept both tables linked correctly).
         if ($role_row['role'] === 'student') {
-            $stmt2 = $conn->prepare("UPDATE student_registration SET password = ? WHERE student_id = ?");
-            $stmt2->bind_param("si", $hashed_password, $user_id);
-            $stmt2->execute();
+            $email_lookup = $conn->prepare("SELECT email FROM users WHERE user_id = ?");
+            $email_lookup->bind_param("i", $user_id);
+            $email_lookup->execute();
+            $email_row = $email_lookup->get_result()->fetch_assoc();
+            $email_lookup->close();
+            $current_email = $email_row['email'] ?? null;
+
+            $stmt2 = $conn->prepare("
+                UPDATE student_registration
+                SET password = ?, student_id = ?
+                WHERE student_id = ? OR email = ?
+            ");
+            if (!$stmt2) {
+                throw new Exception("Prepare failed: " . $conn->error);
+            }
+            $stmt2->bind_param("siis", $hashed_password, $user_id, $user_id, $current_email);
+            if (!$stmt2->execute()) {
+                throw new Exception("Failed to update student_registration: " . $stmt2->error);
+            }
             $stmt2->close();
+
         } elseif ($role_row['role'] === 'faculty') {
-            $stmt2 = $conn->prepare("UPDATE faculty_registration SET password = ? WHERE faculty_id = ?");
-            $stmt2->bind_param("si", $hashed_password, $user_id);
-            $stmt2->execute();
+            $email_lookup = $conn->prepare("SELECT email FROM users WHERE user_id = ?");
+            $email_lookup->bind_param("i", $user_id);
+            $email_lookup->execute();
+            $email_row = $email_lookup->get_result()->fetch_assoc();
+            $email_lookup->close();
+            $current_email = $email_row['email'] ?? null;
+
+            $stmt2 = $conn->prepare("
+                UPDATE faculty_registration
+                SET password = ?, faculty_id = ?
+                WHERE faculty_id = ? OR faculty_email = ?
+            ");
+            if (!$stmt2) {
+                throw new Exception("Prepare failed: " . $conn->error);
+            }
+            $stmt2->bind_param("siis", $hashed_password, $user_id, $user_id, $current_email);
+            if (!$stmt2->execute()) {
+                throw new Exception("Failed to update faculty_registration: " . $stmt2->error);
+            }
             $stmt2->close();
         }
-    }
 
-    unset($_SESSION['reset_verified_user_id']);
-    $_SESSION['reset_message'] = "Password updated successfully! You can now log in.";
-    $_SESSION['reset_message_type'] = 'success';
+        // Commit transaction
+        $conn->commit();
+
+        // Clear session variables
+        unset($_SESSION['reset_verified_user_id']);
+        unset($_SESSION['reset_verified_email']);
+
+        $_SESSION['reset_message'] = "✓ Password updated successfully! You can now log in with your new password.";
+        $_SESSION['reset_message_type'] = 'success';
+
+    } catch (Exception $e) {
+        // Rollback transaction on any error
+        $conn->rollback();
+
+        $_SESSION['reset_message'] = "Error updating password: " . $e->getMessage();
+        $_SESSION['reset_message_type'] = 'danger';
+    }
 
     $conn->close();
     header('Location: index.php');

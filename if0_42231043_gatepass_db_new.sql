@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: sql208.infinityfree.com
--- Generation Time: Jun 22, 2026 at 09:08 AM
+-- Generation Time: Jun 26, 2026 at 07:54 AM
 -- Server version: 11.4.12-MariaDB
 -- PHP Version: 7.2.22
 
@@ -129,7 +129,7 @@ INSERT INTO `gate_pass_requests` (`request_id`, `student_id`, `reason`, `status`
 (9, 7, 'meetup @ GOVP', 0, 'Fourth Year', 'Prof.A.M.Gunje', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme', NULL, 0, 0, 0, NULL, NULL, NULL),
 (10, 7, 'meetup @ GOVP', 2, 'Second Year', 'Prof.A.G.Gund', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme', NULL, 1, 1, 2, 'Prof.A.G.Gund', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme'),
 (11, 14, 'meetup @ NBNSCOE', 2, 'Fourth Year', 'Prof.A.G.Gund', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme', NULL, 2, 0, 0, 'Prof.A.G.Gund', NULL, NULL),
-(12, 15, 'Sswcoe 🪚', 0, 'Third Year', 'Prof.A.G.Gund', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme', NULL, 1, 0, 0, 'Prof.A.G.Gund', NULL, NULL);
+(12, 15, 'Sswcoe 🪚', 1, 'Third Year', 'Prof.A.G.Gund', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme', NULL, 1, 1, 1, 'Prof.A.G.Gund', 'Prof.U.S.Gatkul', 'Prof.Harish Gurme');
 
 -- --------------------------------------------------------
 
@@ -174,10 +174,10 @@ CREATE TABLE `student_registration` (
 --
 
 INSERT INTO `student_registration` (`enrollment_no`, `full_name`, `email`, `password`, `department`, `studying_year`, `created_at`, `student_id`) VALUES
-('en12121212', 'Shreya v', 'shreya@gmail.com', '$2y$10$Q9t7xiPCWtZOn7KdLR7ip.5vQDz7uBdnj6yo2RlrUIKapL/tM4Uwq', 'mba', 0, '2026-06-20 12:59:26', 7),
+('en12121212', 'Shreya v', 'shreyavijapure@gmail.com', '$2y$10$Q9t7xiPCWtZOn7KdLR7ip.5vQDz7uBdnj6yo2RlrUIKapL/tM4Uwq', 'mba', 0, '2026-06-20 12:59:26', 7),
 ('en12345123', 'aditya', 'aditya@gmai.com', '$2y$10$9d8c86ABYjRJ6dDDgE3VDeBUo19xccQ1uVWHw9lT6OnWS2mXFTglO', 'mech', 0, '2026-06-20 15:58:35', 14),
 ('en14032005', 'Harshada', 'harshada@gmail.com', '$2y$10$sV94PEzJVVSAh0Rk/hMOd.LVn7Uc4i1W9IF5bEVTBlbLjvtWeaJ/e', 'Cse', 0, '2026-06-22 12:05:02', 15),
-('en24221101', 'srushti deepak vijapure', 'srushtivijapure8@gmail.com', '$2y$10$Q77KCHn9oiNUXrGZcxlvYuvYX2EL0Z.gV1TgdQDT71FL3gY.qkKdq', 'cse', 0, '2026-06-20 11:27:07', 0),
+('en24221101', 'srushti deepak vijapure', 'srushtivijapure8@gmail.com', '$2y$10$Xp/YJMDnDcR5C2RVp0GUneUj3uqFeXJN0Y7ySp4IMUEkubc/B2o5K', 'cse', 0, '2026-06-20 11:27:07', 6),
 ('ENR2025001', 'Nandini Sharma', 'nandini@example.com', 'pass123', 'IT', 2, '2025-05-03 06:31:11', 1),
 ('ENR2025002', 'Rahul Patil', 'rahul@example.com', 'rahul@321', 'CSE', 3, '2025-05-03 06:31:11', 2);
 
@@ -208,8 +208,8 @@ INSERT INTO `users` (`user_id`, `name`, `email`, `password`, `role`, `department
 (3, 'Prof. Mehta', 'mehta@wit.edu', 'mehta123', 'faculty', 'IT', NULL, '2025-05-03 06:31:11'),
 (4, 'Dr. Joshi', 'joshi@wit.edu', 'joshi456', 'faculty', 'CSE', NULL, '2025-05-03 06:31:11'),
 (5, 'Admin User', 'admin@wit.edu', 'adminpass', 'admin', NULL, NULL, '2025-05-03 06:31:11'),
-(6, 'srushti deepak vijapure', 'srushtivijapure8@gmail.com', '$2y$10$Q77KCHn9oiNUXrGZcxlvYuvYX2EL0Z.gV1TgdQDT71FL3gY.qkKdq', 'student', 'cse', '', '2026-06-20 11:27:07'),
-(7, 'Shreya v', 'shreya@gmail.com', '$2y$10$Q9t7xiPCWtZOn7KdLR7ip.5vQDz7uBdnj6yo2RlrUIKapL/tM4Uwq', 'student', 'mba', '', '2026-06-20 12:59:26'),
+(6, 'srushti deepak vijapure', 'srushtivijapure8@gmail.com', '$2y$10$Xp/YJMDnDcR5C2RVp0GUneUj3uqFeXJN0Y7ySp4IMUEkubc/B2o5K', 'student', 'cse', '', '2026-06-20 11:27:07'),
+(7, 'Shreya v', 'shreyavijapure@gmail.com', '$2y$10$Q9t7xiPCWtZOn7KdLR7ip.5vQDz7uBdnj6yo2RlrUIKapL/tM4Uwq', 'student', 'mba', '', '2026-06-20 12:59:26'),
 (10, 'prof. vinayak .V.palmur', 'vvpalmur@gmail.com', '$2y$10$4XeFWIUBKCM3QJqdq1SbXuWa6DBcxJua4kvZU95f/TBDfJJLAGSjS', 'faculty', 'cse', NULL, '2026-06-20 14:41:33'),
 (11, 'Prof.A.G.Gund', 'amrapali@gmail.com', '$2y$10$M25hM53.HjcS06trqW7bPOzAIjxde0NMmnBwWG9xfX6kQPwALcwQ.', 'faculty', 'cse', NULL, '2026-06-20 15:48:27'),
 (12, 'Prof.U.S.Gatkul', 'urmila@gmail.com', '$2y$10$sn/deLq/4kY84bHhrWbB9esOZNdFUWwaxuyrRuNkxgHYbD8q9i.16', 'faculty', 'cse', NULL, '2026-06-20 15:52:57'),

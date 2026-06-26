@@ -60,7 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $overall_status = 0; // still pending somewhere
     }
-
     mysqli_query($conn, "UPDATE gate_pass_requests SET status = $overall_status WHERE request_id = $request_id");
 
     echo "success";

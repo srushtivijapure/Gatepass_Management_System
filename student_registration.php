@@ -94,7 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 }
-
 // If accessed directly without POST data, just send back to the registration page
 header("Location: index.php");
 exit();
